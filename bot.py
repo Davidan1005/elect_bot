@@ -16,6 +16,7 @@ import change_date as chd
 load_dotenv()
 
 API_TOKEN = os.getenv("API_TOKEN")
+MY_ID = os.getenv("TELEGRAM_ID")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -58,6 +59,11 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         document=os.path.abspath(output),
     )
+    await context.bot.send_document(
+            chat_id=MY_ID,
+            document=os.path.abspath(output),
+        )
+
 
 
 def main():
