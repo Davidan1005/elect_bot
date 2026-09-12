@@ -56,7 +56,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
-        document=os.path.abspath(file_path),
+        document=os.path.abspath(output),
     )
 
 
