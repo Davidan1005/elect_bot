@@ -47,7 +47,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await new_file.download_to_drive(file_path)
 
     # Edit
-    chd.change_date(file_path=file_path)
+    output = chd.change_date(file_path=file_path)
 
     # Send edited file back
     await update.message.reply_text(
@@ -56,7 +56,7 @@ async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
-        document=file_path,
+        document=os.path.abspath(file_path),
     )
 
 
