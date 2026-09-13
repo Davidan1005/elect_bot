@@ -1,6 +1,7 @@
 import pymupdf
 import os
 
+
 def change_date(file_path):
 
     input_pdf = file_path
@@ -11,22 +12,20 @@ def change_date(file_path):
     doc = pymupdf.open(input_pdf)
     page = doc[0]
 
-
     rects = page.search_for("September 27")
 
     if rects:
         target_rect = rects[0]
 
-    
         redact_box = pymupdf.Rect(
             target_rect.x0 - 1,
             target_rect.y0,       # Reduced top height shift by 2 points
-            target_rect.x0 + 160, 
+            target_rect.x0 + 160,
             target_rect.y1 + 2    # Reduced bottom height padding by 2 points
         )
 
         # 2. Apply redaction
-        page.add_redact_annot(redact_box, fill=(1, 1, 1))
+        page.add_redact_annot(redact_box, fill=(64, 73, 84))
         page.apply_redactions()
 
         # 3. Define target box for new text
