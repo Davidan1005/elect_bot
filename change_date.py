@@ -25,7 +25,7 @@ def change_date(file_path):
         )
 
         # 2. Apply redaction
-        page.add_redact_annot(redact_box, fill=(64, 73, 84))
+        page.add_redact_annot(redact_box, fill=(64 / 255, 73 / 255, 84 / 255))
         page.apply_redactions()
 
         # 3. Define target box for new text
