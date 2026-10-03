@@ -139,7 +139,7 @@ async def matric_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not matric_number:
         await update.message.reply_text(
-            "Please send your matriculation number."
+            "Send your matriculation number chief."
         )
         return
 
