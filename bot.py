@@ -1,6 +1,8 @@
 import logging
 import os
 import re
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -26,6 +28,30 @@ logging.basicConfig(
 )
 
 
+# ============================================================
+# RENDER HEALTH SERVER
+# ============================================================
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"SIWES bot is running")
+
+    def log_message(self, format, *args):
+        return
+
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
+
+
+# ============================================================
+# MATRIC NUMBER FUNCTIONS
+# ============================================================
+
 def normalize_matric(matric: str) -> str:
     """
     Convert different ways of entering a matric number
@@ -41,10 +67,10 @@ def normalize_matric(matric: str) -> str:
     matric = matric.strip()
 
     # Remove the /300 suffix if the student includes it
-    matric = re.sub(r"[/\\\-_ ]*300$", "", matric, flags=re.IGNORECASE)
+    matric = re.sub(r"[/\\\-_ ]300$", "", matric, flags=re.IGNORECASE)
 
     # Convert spaces, dashes and backslashes to /
-    matric = re.sub(r"[\s\-_\\]+", "/", matric)
+    matric = re.sub(r"[\s\\\-_]+", "/", matric)
 
     # Clean up repeated /
     matric = re.sub(r"/+", "/", matric)
@@ -84,6 +110,10 @@ def find_letter(matric_number: str):
 
     return None
 
+
+# ============================================================
+# TELEGRAM HANDLERS
+# ============================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -155,6 +185,10 @@ async def matric_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+# ============================================================
+# MAIN
+# ============================================================
+
 def main():
 
     if not API_TOKEN:
@@ -188,8 +222,13 @@ def main():
         )
     )
 
-    # LOCAL TESTING:
-    # Use polling instead of webhook.
+    # Start the HTTP server so Render can detect an open port
+    threading.Thread(
+        target=run_health_server,
+        daemon=True
+    ).start()
+
+    # Start Telegram bot using polling
     application.run_polling()
 
 
