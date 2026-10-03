@@ -20,7 +20,7 @@ load_dotenv()
 API_TOKEN = os.getenv("API_TOKEN")
 
 # Folder containing the already-split SIWES letters
-LETTERS_FOLDER = Path("letters")
+LETTERS_FOLDER = Path("split_letters")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -123,7 +123,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Send your matriculation number.\n\n"
         "Example:\n"
-        "23/1234"
+        "23CK033999"
     )
 
 
