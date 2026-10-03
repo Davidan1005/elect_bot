@@ -121,7 +121,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text(
-        "Send your matriculation number.\n\n"
+        "Send your matriculation number chief.\n\n"
         "Example:\n"
         "23CK033999"
     )
