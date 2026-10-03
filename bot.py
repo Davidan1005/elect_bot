@@ -158,8 +158,11 @@ async def matric_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Found your SIWES letter. Sending it now..."
     )
 
+    # ========================================================
+    # SEND LETTER TO STUDENT
+    # ========================================================
+
     try:
-        # Send the letter to the student
         with open(letter, "rb") as document:
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
@@ -167,35 +170,58 @@ async def matric_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 filename=letter.name,
             )
 
-        # Send a copy to you for monitoring
-        if MY_ID:
-            with open(letter, "rb") as document:
-                await context.bot.send_document(
-                    chat_id=MY_ID,
-                    document=document,
-                    filename=letter.name,
-                    caption=(
-                        f"SIWES letter distributed\n"
-                        f"Matric: {matric_number}\n"
-                        f"Student Telegram ID: {update.effective_chat.id}"
-                    ),
-                )
-
         logging.info(
-            f"Successfully sent {letter.name} "
-            f"to student {update.effective_chat.id} "
-            f"and admin."
+            f"LETTER SENT TO STUDENT: {letter.name} "
+            f"-> {update.effective_chat.id}"
         )
 
     except Exception as e:
         logging.error(
-            f"Failed to send letter: {e}",
+            f"FAILED TO SEND LETTER TO STUDENT: {e}",
             exc_info=True
         )
 
         await update.message.reply_text(
             "I found your letter, but I couldn't send it. "
             "Please try again."
+        )
+
+        return
+
+    # ========================================================
+    # SEND COPY TO YOU
+    # ========================================================
+
+    if MY_ID is not None:
+
+        try:
+            with open(letter, "rb") as document:
+                await context.bot.send_document(
+                    chat_id=MY_ID,
+                    document=document,
+                    filename=letter.name,
+                    caption=(
+                        "📄 SIWES LETTER DISTRIBUTED\n\n"
+                        f"Matric: {matric_number}\n"
+                        f"Student Telegram ID: "
+                        f"{update.effective_chat.id}"
+                    ),
+                )
+
+            logging.info(
+                f"MONITORING COPY SENT: {letter.name} "
+                f"-> {MY_ID}"
+            )
+
+        except Exception as e:
+            logging.error(
+                f"FAILED TO SEND MONITORING COPY: {e}",
+                exc_info=True
+            )
+
+    else:
+        logging.error(
+            "MY_ID is None. TELEGRAM_ID was not loaded."
         )
 
 
