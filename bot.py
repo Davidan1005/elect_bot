@@ -18,7 +18,7 @@ from telegram.ext import (
 load_dotenv()
 
 API_TOKEN = os.getenv("API_TOKEN")
-MY_ID = os.getenv("TELEGRAM_ID") if os.getenv("TELEGRAM_ID") else None
+MY_ID = int(os.getenv("TELEGRAM_ID")) if os.getenv("TELEGRAM_ID") else None
 # Folder containing the already-split SIWES letters
 LETTERS_FOLDER = Path("split_letters")
 
