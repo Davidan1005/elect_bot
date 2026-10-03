@@ -1,6 +1,7 @@
-import asyncio
 import logging
 import os
+import re
+from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram import Update
@@ -12,12 +13,12 @@ from telegram.ext import (
     filters,
 )
 
-import change_date as chd
-
 load_dotenv()
 
 API_TOKEN = os.getenv("API_TOKEN")
-MY_ID = int(os.getenv("TELEGRAM_ID")) if os.getenv("TELEGRAM_ID") else None
+
+# Folder containing the already-split SIWES letters
+LETTERS_FOLDER = Path("letters")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -25,84 +26,171 @@ logging.basicConfig(
 )
 
 
+def normalize_matric(matric: str) -> str:
+    """
+    Convert different ways of entering a matric number
+    into one standard format.
+
+    Examples:
+        23/1234       -> 23/1234
+        23-1234       -> 23/1234
+        23 1234       -> 23/1234
+        23/1234/300   -> 23/1234
+    """
+
+    matric = matric.strip()
+
+    # Remove the /300 suffix if the student includes it
+    matric = re.sub(r"[/\\\-_ ]*300$", "", matric, flags=re.IGNORECASE)
+
+    # Convert spaces, dashes and backslashes to /
+    matric = re.sub(r"[\s\-_\\]+", "/", matric)
+
+    # Clean up repeated /
+    matric = re.sub(r"/+", "/", matric)
+
+    return matric.title()
+
+
+def find_letter(matric_number: str):
+    """
+    Find the student's letter in the letters folder.
+    """
+
+    if not LETTERS_FOLDER.exists():
+        logging.error("Letters folder does not exist.")
+        return None
+
+    normalized = normalize_matric(matric_number)
+
+    # Convert:
+    # 23/1234 -> 23_1234
+    filename_matric = normalized.replace("/", "_")
+
+    logging.info(f"Looking for matric number: {filename_matric}")
+
+    for file in LETTERS_FOLDER.glob("*.docx"):
+
+        # Example filename:
+        # David Nduka - 23_1234_300.docx
+
+        filename = file.stem.lower()
+
+        expected = f"{filename_matric}_300".lower()
+
+        if filename.endswith(expected):
+            logging.info(f"Found letter: {file}")
+            return file
+
+    return None
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me your SIWES letter chief")
 
-
-async def downloader(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    document = update.message.document
-    if not document:
+    if update.message is None:
         return
 
-    # Sanitize original file name to prevent path traversal attacks
-    safe_file_name = os.path.basename(document.file_name or f"doc_{document.file_id}")
+    await update.message.reply_text(
+        "Send your matriculation number.\n\n"
+        "Example:\n"
+        "23/1234"
+    )
 
-    folder = "letters"
-    os.makedirs(folder, exist_ok=True)
-    file_path = os.path.join(folder, safe_file_name)
+
+async def matric_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if update.message is None:
+        return
+
+    if update.message.text is None:
+        return
+
+    matric_number = update.message.text.strip()
+
+    if not matric_number:
+        await update.message.reply_text(
+            "Please send your matriculation number."
+        )
+        return
+
+    logging.info(f"Student entered matric number: {matric_number}")
+
+    letter = find_letter(matric_number)
+
+    if letter is None:
+        await update.message.reply_text(
+            "I couldn't find a letter for that matric number.\n\n"
+            "Please check the number and try again."
+        )
+        return
+
+    await update.message.reply_text(
+        "Found your SIWES letter. Sending it now..."
+    )
 
     try:
-        # Download file
-        new_file = await document.get_file()
-        await new_file.download_to_drive(file_path)
+        with open(letter, "rb") as document:
 
-        # Process file without blocking the async event loop
-        output = await asyncio.to_thread(chd.change_date, file_path=file_path)
-
-        await update.message.reply_text(
-            f"{safe_file_name} edited successfully. Sending it back..."
-        )
-
-        output_path = os.path.abspath(output)
-
-        # Send back to user
-        with open(output_path, "rb") as doc:
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
-                document=doc,
-                filename=safe_file_name,
+                document=document,
+                filename=letter.name,
             )
 
-        # Copy to admin channel/chat if set
-        if MY_ID:
-            with open(output_path, "rb") as doc:
-                await context.bot.send_document(
-                    chat_id=MY_ID,
-                    document=doc,
-                    filename=safe_file_name,
-                )
+        logging.info(
+            f"Successfully sent {letter.name} "
+            f"to {update.effective_chat.id}"
+        )
 
     except Exception as e:
-        logging.error(f"Failed to process document: {e}", exc_info=True)
-        await update.message.reply_text("An error occurred while processing your letter.")
 
-    finally:
-        # Cleanup temporary files
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        logging.error(
+            f"Failed to send letter: {e}",
+            exc_info=True
+        )
+
+        await update.message.reply_text(
+            "I found your letter, but I couldn't send it. "
+            "Please try again."
+        )
 
 
 def main():
+
     if not API_TOKEN:
-        raise ValueError("API_TOKEN is missing from environment variables.")
-
-    application = ApplicationBuilder().token(API_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.Document.ALL, downloader))
-
-    webhook_url = os.environ.get("WEBHOOK_URL")
-    port = int(os.environ.get("PORT", 10000))
-
-    if webhook_url:
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            webhook_url=webhook_url,
+        raise ValueError(
+            "API_TOKEN is missing from environment variables."
         )
-    else:
-        # Fallback to polling for local development
-        application.run_polling()
+
+    # Make sure the letters folder exists
+    if not LETTERS_FOLDER.exists():
+        raise FileNotFoundError(
+            f"Letters folder not found: "
+            f"{LETTERS_FOLDER.absolute()}"
+        )
+
+    application = (
+        ApplicationBuilder()
+        .token(API_TOKEN)
+        .build()
+    )
+
+    # /start
+    application.add_handler(
+        CommandHandler("start", start)
+    )
+
+    # Normal text messages = matric numbers
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            matric_handler
+        )
+    )
+
+    # LOCAL TESTING:
+    # Use polling instead of webhook.
+    application.run_polling()
 
 
 if __name__ == "__main__":
