@@ -18,7 +18,7 @@ from telegram.ext import (
 load_dotenv()
 
 API_TOKEN = os.getenv("API_TOKEN")
-
+MY_ID = os.getenv("TELEGRAM_ID") if os.getenv("TELEGRAM_ID") else None
 # Folder containing the already-split SIWES letters
 LETTERS_FOLDER = Path("split_letters")
 
@@ -159,21 +159,35 @@ async def matric_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
+        # Send the letter to the student
         with open(letter, "rb") as document:
-
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=document,
                 filename=letter.name,
             )
 
+        # Send a copy to you for monitoring
+        if MY_ID:
+            with open(letter, "rb") as document:
+                await context.bot.send_document(
+                    chat_id=MY_ID,
+                    document=document,
+                    filename=letter.name,
+                    caption=(
+                        f"SIWES letter distributed\n"
+                        f"Matric: {matric_number}\n"
+                        f"Student Telegram ID: {update.effective_chat.id}"
+                    ),
+                )
+
         logging.info(
             f"Successfully sent {letter.name} "
-            f"to {update.effective_chat.id}"
+            f"to student {update.effective_chat.id} "
+            f"and admin."
         )
 
     except Exception as e:
-
         logging.error(
             f"Failed to send letter: {e}",
             exc_info=True
